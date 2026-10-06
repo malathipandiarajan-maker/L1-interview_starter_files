@@ -109,28 +109,134 @@
  * ============================================================================
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getDeployments } from "@/api/diploymentApi";
+import DeploymentCard from "./example1";
+import { useDeploymentFilters } from "./example2";
+import type { Deployment } from "@/types/deployment";
 
-/**
- * TODO
- *
- * Build the Deployment Queue page.
- *
- * Expected flow:
- *
- * React Query
- *        ↓
- * Deployment Data
- *        ↓
- * useDeploymentSearch()
- *        ↓
- * DeploymentCard[]
- */
+const statuses = ["All", "Pending", "In Progress", "Completed", "Failed"];
 
 export default function Example3() {
- // This is a placeholder component to demonstrate the usage of the useQuery hook.
+  const queryClient = useQueryClient();
+  const {
+    data: deployments = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["deployments"],
+    queryFn: getDeployments,
+  });
 
-  return <div className="container mx-auto p-6">
-    // You can use the useQuery hook to fetch deployments and display them using the DeploymentCard component.
-  </div>;
+  const { search, setSearch, status, setStatus, filteredDeployments } =
+    useDeploymentFilters(deployments);
+
+  const handleAdvance = (deployment: Deployment) => {
+    if (deployment.status === "Completed") return;
+
+    const nextStatus: Deployment["status"] =
+      deployment.status === "Pending" ? "In Progress" : "Completed";
+
+    queryClient.setQueryData<Deployment[]>(["deployments"], (current = []) =>
+      current.map((item) =>
+        item.id === deployment.id ? { ...item, status: nextStatus } : item,
+      ),
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen p-6" role="status">
+        Loading deployments...
+      </main>
+    );
+  }
+
+  if (isError) {
+    return (
+      <main className="min-h-screen p-6" role="alert">
+        Could not load deployments: {error.message}
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-slate-900 p-6 text-white">
+          <div>
+            <h1 className="text-2xl font-bold">🚀 Deployment Queue</h1>
+
+            <p className="mt-1 text-sm text-slate-300">
+              Monitor deployment requests across environments.
+            </p>
+          </div>
+
+          <div className="rounded-md bg-slate-800 px-8 py-3 text-center">
+            <p className="text-xs text-slate-300">ACTIVE DEPLOYMENTS</p>
+
+            <p className="text-2xl font-semibold">{deployments.length}</p>
+          </div>
+        </header>
+        <section className="space-y-4 rounded-lg border bg-white p-5">
+          <label
+            className="block text-md font-medium"
+            htmlFor="deployment-search"
+          >
+            Search & Filters
+          </label>
+          <input
+            id="deployment-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by application name..."
+            className="w-full rounded-md border px-3 py-2 text-sm"
+          />
+
+          <div aria-label="Filter by status" className="flex flex-wrap gap-2">
+            {statuses.map((filterStatus) => (
+              <button
+                key={filterStatus}
+                type="button"
+                aria-pressed={status === filterStatus}
+                onClick={() => setStatus(filterStatus)}
+                className={`rounded-md border px-3 py-2 text-sm ${
+                  status === filterStatus
+                    ? "bg-slate-900 text-white"
+                    : "bg-white text-slate-900 hover:bg-slate-100"
+                }`}
+              >
+                {filterStatus}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredDeployments.length} of {deployments.length}{" "}
+            deployments
+          </p>
+        </section>
+
+        {filteredDeployments.length === 0 ? (
+          <p
+            className="rounded-lg border bg-white p-8 text-center"
+            role="status"
+          >
+            No deployments match your search and status filter.
+          </p>
+        ) : (
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredDeployments.map((deployment) => (
+              <DeploymentCard
+                key={deployment.id}
+                deployment={deployment}
+                onAdvance={handleAdvance}
+              />
+            ))}
+          </section>
+        )}
+      </div>
+    </main>
+  );
 }
