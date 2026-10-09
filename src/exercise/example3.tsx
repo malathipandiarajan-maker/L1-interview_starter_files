@@ -1,136 +1,115 @@
-/**
- * ============================================================================
- * Exercise 3 - Deployment Queue
- * ============================================================================
- *
- * Scenario
- * --------
- *
- * Congratulations!
- *
- * The DeploymentCard component and search functionality have been completed.
- *
- * Your next task is to build the Deployment Queue page by integrating the
- * previous exercises.
- *
- * ============================================================================
- *
- * Requirements
- *
- * Build a Deployment Queue page using the supplied mock API response.
- *
- * The page should display all deployments using the DeploymentCard component
- * created in Exercise 1.
- *
- * Use the custom hook created in Exercise 2 for searching deployments.
- *
- * ============================================================================
- *
- * Functional Requirements
- *
- * 1. Fetch deployments using React Query.
- *
- * 2. Display all deployments.
- *
- * 3. Search deployments by Application Name.
- *
- * 4. Display the following summary:
- *
- *      Total Deployments
- *
- * 5. Add a Status filter.
- *
- *      All
- *      Pending
- *      In Progress
- *      Completed
- *      Failed
- *
- * 6. Display an Empty State when no deployments match the search/filter.
- *
- * 7. Display a Loading State while data is loading.
- *
- * 8. Display an Error State when the request fails.
- *
- * ============================================================================
- *
- * Technical Expectations
- *
- * • React Query
- *
- * • TypeScript
- *
- * • Reusable Components
- *
- * • Clean Folder Structure
- *
- * • Avoid duplicated logic
- *
- * • Use the custom hook from Exercise 2
- *
- * ============================================================================
- *
- * Bonus (Optional)
- *
- * If time permits, implement one or more of the following:
- *
- * • Sort deployments by Scheduled Date
- *
- * • Display deployment counts grouped by Status
- *
- * • Display the number of filtered deployments
- *
- * • Highlight the matched search text
- *
- * ============================================================================
- *
- * Notes
- *
- * • You may create additional components if needed.
- *
- * • You may extend the custom hook created in Exercise 2.
- *
- * • Focus on clean architecture over visual appearance.
- *
- * ============================================================================
- *
- * Evaluation
- *
- * ✓ React
- * ✓ React Query
- * ✓ TypeScript
- * ✓ Component Composition
- * ✓ Hooks
- * ✓ State Management
- * ✓ Code Organization
- * ✓ Reusability
- * ✓ Tailwind CSS
- *
- * ============================================================================
- */
-
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 
-/**
- * TODO
- *
- * Build the Deployment Queue page.
- *
- * Expected flow:
- *
- * React Query
- *        ↓
- * Deployment Data
- *        ↓
- * useDeploymentSearch()
- *        ↓
- * DeploymentCard[]
- */
+import { getDeployments } from "@/api/diploymentApi";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+import DeploymentCard, { type Deployment, type DeploymentStatus } from "./DeploymentCard";
+import { useDeploymentFilters } from "./example2";
+
+const statusOptions: Array<"All" | DeploymentStatus> = [
+  "All",
+  "Pending",
+  "In Progress",
+  "Completed",
+  "Failed",
+];
 
 export default function Example3() {
- // This is a placeholder component to demonstrate the usage of the useQuery hook.
+  const [statusFilter, setStatusFilter] = useState<"All" | DeploymentStatus>("All");
 
-  return <div className="container mx-auto p-6">
-    // You can use the useQuery hook to fetch deployments and display them using the DeploymentCard component.
-  </div>;
+  const {
+    data: deployments = [],
+    isLoading,
+    error,
+  } = useQuery<Deployment[]>({
+    queryKey: ["deployments"],
+    queryFn: getDeployments,
+  });
+
+  const { search, setSearch, filteredDeployments } = useDeploymentFilters(deployments);
+
+  const visibleDeployments = useMemo(
+    () =>
+      filteredDeployments.filter(
+        (deployment) =>
+          statusFilter === "All" || deployment.status === statusFilter,
+      ),
+    [filteredDeployments, statusFilter],
+  );
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="rounded-xl border border-dashed p-12 text-center text-muted-foreground">
+          Loading deployments...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-12 text-center text-destructive">
+          Failed to load deployments.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto max-w-6xl p-6">
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Deployment Queue
+          </p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">Release Overview</h1>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">Total Deployments: {deployments.length}</Badge>
+          <Badge variant="secondary">Filtered: {visibleDeployments.length}</Badge>
+        </div>
+      </div>
+
+      <div className="mb-6 flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+        <input
+          aria-label="Search deployments"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by application name"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring md:max-w-xs"
+        />
+
+        <div className="flex flex-wrap gap-2">
+          {statusOptions.map((status) => (
+            <Button
+              key={status}
+              type="button"
+              variant={statusFilter === status ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter(status)}
+            >
+              {status}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {visibleDeployments.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-muted/30 p-12 text-center text-muted-foreground">
+          No deployments match the current search and filter settings.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {visibleDeployments.map((deployment) => (
+            <DeploymentCard key={deployment.id} deployment={deployment} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

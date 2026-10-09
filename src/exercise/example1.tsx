@@ -111,8 +111,135 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
-const DeploymentCard = () => {
-  return <div>DeploymentCard</div>;
+export type DeploymentEnvironment =
+  | "Production"
+  | "QA"
+  | "Development"
+  | "Staging";
+
+export type DeploymentStatus =
+  | "Pending"
+  | "In Progress"
+  | "Completed"
+  | "Failed";
+
+export type DeploymentPriority = "Low" | "Medium" | "High" | "Critical";
+
+export interface Deployment {
+  id: string;
+  application: string;
+  version: string;
+  environment: DeploymentEnvironment;
+  status: DeploymentStatus;
+  requestedBy: string;
+  requestedAt: string;
+  scheduledAt: string;
+  region: string;
+  priority: DeploymentPriority;
+}
+
+export interface DeploymentCardProps {
+  deployment: Deployment;
+  onAdvance?: (deployment: Deployment) => void;
+}
+
+const priorityStyles: Record<DeploymentPriority, string> = {
+  Low: "border-l-emerald-500",
+  Medium: "border-l-amber-500",
+  High: "border-l-orange-500",
+  Critical: "border-l-red-600",
+};
+
+const nextStatusMap: Record<DeploymentStatus, DeploymentStatus> = {
+  Pending: "In Progress",
+  "In Progress": "Completed",
+  Completed: "Completed",
+  Failed: "Pending",
+};
+
+const statusVariant: Record<
+  DeploymentStatus,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  Pending: "secondary",
+  "In Progress": "default",
+  Completed: "outline",
+  Failed: "destructive",
+};
+
+const formatDate = (value: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+
+const DeploymentCard = ({ deployment, onAdvance }: DeploymentCardProps) => {
+  const nextStatus = nextStatusMap[deployment.status];
+  const isCompleted = deployment.status === "Completed";
+
+  return (
+    <Card
+      className={`border-l-4 ${priorityStyles[deployment.priority]} bg-card shadow-sm`}
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-lg font-semibold text-foreground">
+              {deployment.application}
+            </CardTitle>
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{deployment.id}</span>
+              <Separator orientation="vertical" className="h-3" />
+              <span>{deployment.version}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <Badge variant={statusVariant[deployment.status]}>
+              {deployment.status}
+            </Badge>
+            <Badge variant="outline">{deployment.environment}</Badge>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-3 pt-0">
+        <div className="grid gap-2 text-sm text-foreground/90">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Region</span>
+            <span>{deployment.region}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Requested by</span>
+            <span>{deployment.requestedBy}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Scheduled</span>
+            <span>{formatDate(deployment.scheduledAt)}</span>
+          </div>
+        </div>
+
+        <CardDescription className="text-xs text-muted-foreground">
+          Requested at {new Intl.DateTimeFormat("en-US", {
+            month: "short",
+            day: "numeric",
+          }).format(new Date(deployment.requestedAt))}
+        </CardDescription>
+      </CardContent>
+
+      <CardFooter className="pt-3">
+        <Button
+          variant={isCompleted ? "secondary" : "default"}
+          className="w-full"
+          onClick={() => onAdvance?.(deployment)}
+          disabled={isCompleted}
+        >
+          {isCompleted ? "Completed" : `Advance to ${nextStatus}`}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
 };
 
 export default DeploymentCard;
